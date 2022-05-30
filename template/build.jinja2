@@ -1,0 +1,18 @@
+#!/usr/python3
+
+import cmd
+import os
+import subprocess
+from tqdm import tqdm
+
+{# subprocess.run(['sudo', 'docker', 'pull', 'mmozeiko/mingw-w64']) #}
+
+targets = {{dlls}}
+for item in tqdm(targets):
+    out_file = f"tmp/{item}"
+    c_file = f"source/{item}.c"
+    def_file = f"source/{item}.def"
+    try:
+        subprocess.run(["docker", "run", "--rm", "-ti", "-v", "{}:/mnt".format(os.getcwd()), "mmozeiko/mingw-w64", "x86_64-w64-mingw32-gcc", "-shared", "-mwindows", "-o", out_file, c_file, def_file])
+    except:
+        pass

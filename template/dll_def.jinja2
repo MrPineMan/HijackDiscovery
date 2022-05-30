@@ -1,0 +1,4 @@
+LIBRARY MyDLLName
+EXPORTS
+{% for exp_func, ordinal in dll_exports %}{{ exp_func }}     @{{ordinal}}
+{% endfor %}

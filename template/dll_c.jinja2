@@ -1,0 +1,65 @@
+#include <windows.h>
+#include <lmcons.h>
+#include <stdio.h>
+
+BOOL IsElevated() {
+    BOOL fRet = FALSE;
+    HANDLE hToken = NULL;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        TOKEN_ELEVATION Elevation;
+        DWORD cbSize = sizeof(TOKEN_ELEVATION);
+        if(GetTokenInformation(hToken, TokenElevation, &Elevation, sizeof( Elevation ), &cbSize)) {
+            fRet = Elevation.TokenIsElevated;
+        }
+    }
+    if (hToken) { CloseHandle(hToken); }
+    return fRet;
+}
+
+VOID generate_fingerprint(const char* f) {
+    TCHAR fileName[MAX_PATH+1];
+    DWORD charsWritten = GetModuleFileName(NULL, fileName, MAX_PATH + 1);
+    char* buf = strrchr(fileName, '\\');
+
+    char path[MAX_PATH+1];
+    HMODULE hm = NULL;
+
+    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR) &generate_fingerprint, &hm) == 0){
+        int ret = GetLastError();
+        fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
+    }
+    if (GetModuleFileName(hm, path, sizeof(path)) == 0){
+        int ret = GetLastError();
+        fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
+    }
+
+    char* buf2 = strrchr(path, '\\');
+    TCHAR result[MAX_PATH*4];
+    snprintf(result, MAX_PATH*4, "%s_%s_%s_%d.txt", &buf[1], &buf2[1], f, IsElevated());
+    {# snprintf(result, MAX_PATH*4, "%s_%s.txt", f, "0"); #}
+
+    FILE *fptr;
+    fptr = fopen(result, "wb");
+    fwrite(result, strlen(result)+1, sizeof(TCHAR), fptr);
+    fclose(fptr);
+    {# //WinExec("cmd.exe", 1); #}
+}
+
+BOOL WINAPI DllMain(HINSTANCE hModule, DWORD fdwReason, LPVOID lpvReserved) {
+    static HANDLE hThread;
+
+    switch (fdwReason)
+    {
+        case DLL_PROCESS_ATTACH:
+        case DLL_PROCESS_DETACH:
+        case DLL_THREAD_ATTACH:
+        case DLL_THREAD_DETACH:
+            generate_fingerprint(__func__);
+            break;
+    }
+
+    return TRUE;
+}
+
+{% for exp_func, ordinal in dll_exports %}VOID *{{exp_func}}(){ generate_fingerprint(__func__); }
+{% endfor %}
